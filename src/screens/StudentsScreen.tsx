@@ -3,7 +3,7 @@ import { View, Text, FlatList, TextInput, StyleSheet, Modal, TouchableOpacity, S
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { colors, spacing, radius } from '../theme';
+import { colors, spacing, radius, shadow } from '../theme';
 import { TopBar, Row, PrimaryButton, LoadingView, EmptyState } from '../components';
 import api from '../api';
 import type { Student, StudentsStackParamList } from '../types';

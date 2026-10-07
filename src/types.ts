@@ -17,7 +17,7 @@ export interface Student {
   halaqa_name?: string | null;
 }
 
-export type AttendanceStatus = 'present' | 'absent';
+export type AttendanceStatus = 'present' | 'absent' | 'excused';
 
 export interface AttendanceRecordInput {
   student_id: number;
@@ -32,6 +32,7 @@ export interface AttendanceSummary {
   total: number;
   present: number;
   absent: number;
+  excused: number;
 }
 
 export type SessionType = 'حفظ جديد' | 'مراجعة صغرى' | 'مراجعة كبرى' | 'تجويد';

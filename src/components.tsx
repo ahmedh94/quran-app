@@ -1,7 +1,7 @@
 // components.tsx - عناصر واجهة مشتركة تستخدم في كل الشاشات
 import React, { ReactNode } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, radius, spacing } from './theme';
+import { colors, radius, shadow, spacing } from './theme';
 
 interface TopBarProps {
   title: string;
@@ -11,7 +11,7 @@ interface TopBarProps {
 export function TopBar({ title, subtitle, icon }: TopBarProps) {
   return (
     <View style={styles.topBar}>
-      <Text style={styles.topBarTitle}>{icon ? `${icon}  ` : ''}{title}</Text>
+      <Text style={[styles.topBarTitle, shadow]}>{icon ? `${icon}  ` : ''}{title}</Text>
       {subtitle ? <Text style={styles.topBarSubtitle}>{subtitle}</Text> : null}
     </View>
   );
@@ -59,6 +59,7 @@ export function PrimaryButton({ title, onPress, outline = false, disabled = fals
         styles.btn,
         outline ? styles.btnOutline : styles.btnFilled,
         disabled && { opacity: 0.5 },
+        shadow,
       ]}
     >
       <Text style={outline ? styles.btnOutlineText : styles.btnFilledText}>{title}</Text>
@@ -110,7 +111,7 @@ const styles = StyleSheet.create({
   topBar: {
     backgroundColor: colors.pink,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.lg + 25,
     paddingBottom: spacing.lg + 6,
   },
   topBarTitle: { color: '#fff', fontSize: 18, fontWeight: '800', textAlign: 'right' },
@@ -122,6 +123,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     padding: spacing.md,
     alignItems: 'flex-end',
+    ...shadow,
   },
   statLabel: { color: colors.textMuted, fontSize: 12 },
   statValue: { color: colors.pinkDark, fontWeight: '800', fontSize: 20, marginTop: 4 },
@@ -137,7 +139,7 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: 'center',
   },
-  btnFilled: { backgroundColor: colors.pink },
+  btnFilled: { backgroundColor: colors.pink, ...shadow },
   btnFilledText: { color: '#fff', fontWeight: '700' },
   btnOutline: { borderWidth: 1.5, borderColor: colors.pink, backgroundColor: '#fff' },
   btnOutlineText: { color: colors.pinkDark, fontWeight: '700' },
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm + 2,
     marginBottom: spacing.sm,
+    ...shadow,
   },
   rowTitle: { fontWeight: '700', color: colors.textDark, fontSize: 13, textAlign: 'right' },
   rowSubtitle: { color: colors.textMuted, fontSize: 11, textAlign: 'right', marginTop: 2 },

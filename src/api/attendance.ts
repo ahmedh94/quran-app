@@ -34,7 +34,13 @@ export async function getAttendanceSummary(date: string): Promise<AttendanceSumm
   const present = (await db.getFirstAsync<{ c: number }>(
     "SELECT COUNT(*) AS c FROM attendance WHERE date = ? AND status = 'present'", [date]
   ))?.c ?? 0;
-  return { total, present, absent: present > total ? 0 : total - present };
+  const absent = (await db.getFirstAsync<{ c: number }>(
+    "SELECT COUNT(*) AS c FROM attendance WHERE date = ? AND status = 'absent'", [date]
+  ))?.c ?? 0;
+  const excused = (await db.getFirstAsync<{ c: number }>(
+    "SELECT COUNT(*) AS c FROM attendance WHERE date = ? AND status = 'excused'", [date]
+  ))?.c ?? 0;
+  return { total, present, absent, excused };
 }
 
 export async function getAttendanceHistory(studentId: number): Promise<AttendanceHistoryItem[]> {
@@ -58,11 +64,11 @@ export async function getAttendanceStats(studentId: number): Promise<AttendanceS
 }
 
 /** عدد الحصص اللي الطالب حضرها فعليًا في شهر معيّن (YYYY-MM) — يستخدم لحساب "الحصص المتبقية" */
-export async function getPresentCountForMonth(studentId: number, month: string): Promise<number> {
+export async function getDeductedCountForMonth(studentId: number, month: string): Promise<number> {
   const db = await getDb();
   const row = await db.getFirstAsync<{ c: number }>(
     `SELECT COUNT(*) AS c FROM attendance
-     WHERE student_id = ? AND status = 'present' AND substr(date,1,7) = ?`,
+     WHERE student_id = ? AND status IN ('present','absent') AND substr(date,1,7) = ?`,
     [studentId, month]
   );
   return row?.c ?? 0;

@@ -4,17 +4,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Calendar, LocaleConfig, DateData } from 'react-native-calendars';
-import { colors, spacing, radius } from '../theme';
+import { colors, spacing, radius, shadow } from '../theme';
 import { TopBar, StatCard, Row, Badge } from '../components';
 import api from '../api';
 import { dateToYMD } from '../utils/time';
 import type { RootTabParamList, MemorizationSession, Payment, CalendarEvent } from '../types';
 
 LocaleConfig.locales['ar'] = {
-  monthNames: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
-  monthNamesShort: ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'],
-  dayNames: ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'],
-  dayNamesShort: ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'],
+  monthNames: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+  monthNamesShort: ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'],
+  dayNames: ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'],
+  dayNamesShort: ['أحد', 'اثنين', 'ثلاثاء', 'أربعاء', 'خميس', 'جمعة', 'سبت'],
 };
 LocaleConfig.defaultLocale = 'ar';
 
@@ -99,7 +99,7 @@ export default function HomeScreen({ navigation }: Props) {
         <View style={styles.quickRow}>
           <QuickAction icon="user-friends" label="الطلاب" onPress={() => navigation.navigate('الطلاب')} />
           <QuickAction icon="book-open" label="متابعة الحفظ" onPress={() => navigation.navigate('الحفظ')} />
-          <QuickAction icon="calendar-alt" label="المواعيد" onPress={() => navigation.navigate('المواعيد')} />
+          <QuickAction icon="calendar-alt" label="المواعيد" onPress={() => navigation.navigate('المواعيد')} {...shadow} />
         </View>
 
         <Text style={styles.sectionTitle}>التقويم</Text>
@@ -115,7 +115,7 @@ export default function HomeScreen({ navigation }: Props) {
             textDayFontWeight: '600',
             textMonthFontWeight: '800',
           }}
-          style={{ borderRadius: radius.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border }}
+          style={{ borderRadius: radius.md, marginBottom: spacing.lg, borderWidth: 1, borderColor: colors.border, ...shadow }}
         />
 
         {overdueStudents.length > 0 && (

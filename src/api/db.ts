@@ -35,7 +35,7 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           student_id INTEGER NOT NULL,
           date TEXT NOT NULL,
-          status TEXT NOT NULL CHECK(status IN ('present','absent')),
+          status TEXT NOT NULL CHECK(status IN ('present','absent','excused')),
           FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
           UNIQUE(student_id, date)
         );
@@ -108,6 +108,25 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       const hasSessionsPerMonth = studentsColumns.some((c) => c.name === 'sessions_per_month');
       if (!hasSessionsPerMonth) {
         await db.execAsync('ALTER TABLE students ADD COLUMN sessions_per_month INTEGER');
+      }
+
+      const attendanceTableSql = await db.getFirstAsync<{ sql: string }>(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='attendance'"
+      );
+      if (attendanceTableSql && !attendanceTableSql.sql.includes('excused')) {
+        await db.execAsync(`
+    CREATE TABLE attendance_new (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      status TEXT NOT NULL CHECK(status IN ('present','absent','excused')),
+      FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+      UNIQUE(student_id, date)
+    );
+    INSERT INTO attendance_new SELECT * FROM attendance;
+    DROP TABLE attendance;
+    ALTER TABLE attendance_new RENAME TO attendance;
+  `);
       }
 
       return db;

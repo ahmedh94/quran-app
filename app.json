@@ -2,11 +2,13 @@
   "expo": {
     "name": "حلقتي",
     "slug": "halaqty-quran-app",
-    "version": "1.0.0",
+    "version": "5.10.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "icon": "./assets/icon.png",
@@ -46,6 +48,11 @@
           "imageWidth": 220
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d37c28f6-0be5-421e-aeb6-6b20a289b530"
+      }
+    }
   }
 }

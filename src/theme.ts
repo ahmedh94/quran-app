@@ -14,6 +14,7 @@ export const colors = {
   warningBg: '#fff3e0',
   danger: '#c62828',
   dangerBg: '#ffebee',
+  gray: '#808080',
 } as const;
 
 export const radius = {
@@ -29,4 +30,12 @@ export const spacing = {
   md: 12,
   lg: 16,
   xl: 24,
+} as const;
+
+export const shadow = {
+  shadowColor: colors.gray,
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.2,
+  shadowRadius: 10,
+  elevation: 4,
 } as const;

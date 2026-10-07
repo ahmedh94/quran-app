@@ -6,28 +6,47 @@ import { colors, spacing, radius } from '../theme';
 import { TopBar, PrimaryButton, Row, Badge } from '../components';
 import api from '../api';
 import { dateToYMD } from '../utils/time';
-import type { Student, MemorizationSession, SessionType, Evaluation } from '../types';
+import type { Student, MemorizationSession, Evaluation } from '../types';
 
-const SESSION_TYPES: SessionType[] = ['حفظ جديد', 'مراجعة صغرى', 'مراجعة كبرى', 'تجويد'];
 const EVALUATIONS: Evaluation[] = ['ممتاز', 'جيد', 'يحتاج مراجعة'];
 
 function todayISO(): string {
   return dateToYMD(new Date());
 }
 
+// شكل بيانات كل قسم (تسميع / مراجعة قريب / مراجعة بعيد) لوحده
+interface SectionState {
+  surah: string;
+  ayahFrom: string;
+  ayahTo: string;
+  evaluation: Evaluation;
+}
+const emptySection: SectionState = { surah: '', ayahFrom: '', ayahTo: '', evaluation: EVALUATIONS[0] };
+
+const SECTIONS = [
+  { key: 'new', sessionType: 'تسميع', title: 'تسميع' },
+  { key: 'near', sessionType: 'مراجعة قريب', title: 'تسميع مراجعة قريب' },
+  { key: 'far', sessionType: 'مراجعة بعيد', title: 'تسميع مراجعة بعيد' },
+] as const;
+type SectionKey = typeof SECTIONS[number]['key'];
+
 export default function MemorizationScreen() {
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudent, setSelectedStudent] = useState<number | null>(null);
-  const [sessionType, setSessionType] = useState<SessionType>(SESSION_TYPES[0]);
-  const [surah, setSurah] = useState('');
-  const [ayahFrom, setAyahFrom] = useState('');
-  const [ayahTo, setAyahTo] = useState('');
-  const [evaluation, setEvaluation] = useState<Evaluation>(EVALUATIONS[0]);
-  const [notes, setNotes] = useState('');
-  const [nextTarget, setNextTarget] = useState('');
   const [history, setHistory] = useState<MemorizationSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // حالة منفصلة لكل قسم - عشان متتكتبش فوق بعض
+  const [sectionsData, setSectionsData] = useState<Record<SectionKey, SectionState>>({
+    new: { ...emptySection },
+    near: { ...emptySection },
+    far: { ...emptySection },
+  });
+
+  const updateSection = (key: SectionKey, patch: Partial<SectionState>) => {
+    setSectionsData((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  };
 
   const load = useCallback(async () => {
     try {
@@ -43,35 +62,45 @@ export default function MemorizationScreen() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!selectedStudent) return;
-      api.getSessions(selectedStudent).then(setHistory).catch(() => {});
-    }, [selectedStudent])
-  );
+  const refreshHistory = useCallback(() => {
+    if (!selectedStudent) return;
+    api.getSessions(selectedStudent).then(setHistory).catch(() => { });
+  }, [selectedStudent]);
 
-  const save = async () => {
-    if (!selectedStudent || !surah.trim()) {
-      Alert.alert('تنبيه', 'اختار الطالب واكتب اسم السورة');
+  useFocusEffect(useCallback(() => { refreshHistory(); }, [refreshHistory]));
+
+  // زرار واحد بيحفظ أي قسم اتكتبله سورة، ويتجاهل الأقسام الفاضية
+  const saveAll = async () => {
+    if (!selectedStudent) return;
+
+    const toSave = SECTIONS.filter((s) => sectionsData[s.key].surah.trim());
+    if (toSave.length === 0) {
+      Alert.alert('تنبيه', 'اكتب اسم السورة في قسم واحد على الأقل');
       return;
     }
+
     setSaving(true);
     try {
-      await api.createSession({
-        student_id: selectedStudent,
-        date: todayISO(),
-        session_type: sessionType,
-        surah: surah.trim(),
-        ayah_from: ayahFrom ? Number(ayahFrom) : null,
-        ayah_to: ayahTo ? Number(ayahTo) : null,
-        evaluation,
-        notes: notes.trim() || null,
-        next_target: nextTarget.trim() || null,
+      for (const section of toSave) {
+        const data = sectionsData[section.key];
+        await api.createSession({
+          student_id: selectedStudent,
+          date: todayISO(),
+          session_type: section.sessionType,
+          surah: data.surah.trim(),
+          ayah_from: data.ayahFrom ? Number(data.ayahFrom) : null,
+          ayah_to: data.ayahTo ? Number(data.ayahTo) : null,
+          evaluation: data.evaluation,
+        });
+      }
+      // نفضّي الأقسام اللي اتحفظت بس
+      setSectionsData((prev) => {
+        const next = { ...prev };
+        toSave.forEach((s) => { next[s.key] = { ...emptySection }; });
+        return next;
       });
-      setSurah(''); setAyahFrom(''); setAyahTo(''); setNotes(''); setNextTarget('');
-      const updated = await api.getSessions(selectedStudent);
-      setHistory(updated);
-      Alert.alert('تم', 'تم حفظ المتابعة بنجاح');
+      refreshHistory();
+      Alert.alert('تم', `تم حفظ ${toSave.length} قسم بنجاح`);
     } catch (e) {
       Alert.alert('خطأ', e instanceof Error ? e.message : 'حدث خطأ غير متوقع');
     } finally {
@@ -99,59 +128,77 @@ export default function MemorizationScreen() {
             </ScrollView>
           )}
 
-        <Text style={styles.label}>نوع الحصة</Text>
-        <View style={styles.chipRow}>
-          {SESSION_TYPES.map((t) => (
-            <Chip key={t} label={t} active={sessionType === t} onPress={() => setSessionType(t)} />
-          ))}
-        </View>
-
-        <Text style={styles.label}>السورة</Text>
-        <TextInput style={styles.input} value={surah} onChangeText={setSurah} placeholder="مثال: سورة البقرة" textAlign="right" />
-
-        <View style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>من آية</Text>
-            <TextInput style={styles.input} value={ayahFrom} onChangeText={setAyahFrom} keyboardType="numeric" textAlign="right" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.label}>إلى آية</Text>
-            <TextInput style={styles.input} value={ayahTo} onChangeText={setAyahTo} keyboardType="numeric" textAlign="right" />
-          </View>
-        </View>
-
-        <Text style={styles.label}>تقييم التسميع</Text>
-        <View style={styles.chipRow}>
-          {EVALUATIONS.map((e) => (
-            <Chip key={e} label={e} active={evaluation === e} onPress={() => setEvaluation(e)} />
-          ))}
-        </View>
-
-        <Text style={styles.label}>ملاحظات المعلم</Text>
-        <TextInput style={[styles.input, { height: 70 }]} value={notes} onChangeText={setNotes} multiline textAlign="right" placeholder="أخطاء التجويد وغيرها..." />
-
-        <Text style={styles.label}>الحفظ المطلوب للحصة القادمة</Text>
-        <TextInput style={styles.input} value={nextTarget} onChangeText={setNextTarget} placeholder="مثال: سورة البقرة من 11 إلى 20" textAlign="right" />
-
-        <View style={{ marginTop: spacing.sm, marginBottom: spacing.lg }}>
-          <PrimaryButton title={saving ? 'جاري الحفظ...' : 'حفظ المتابعة'} onPress={save} disabled={saving} />
-        </View>
-
-        <Text style={styles.sectionTitle}>سجل الحفظ السابق</Text>
-        {history.length === 0 ? (
-          <Text style={{ color: colors.textMuted, textAlign: 'center' }}>لا يوجد سجل بعد لهذا الطالب</Text>
-        ) : (
-          history.map((h) => (
-            <Row
-              key={h.id}
-              left={`${h.surah || ''} ${h.ayah_from ? `(${h.ayah_from}-${h.ayah_to || ''})` : ''}`}
-              subtitle={`${h.session_type} — ${h.date}`}
-              right={h.evaluation ? <Badge text={h.evaluation} type={h.evaluation === 'يحتاج مراجعة' ? 'warning' : 'success'} /> : null}
+          {selectedStudent && SECTIONS.map((section) => (
+            <SectionFields
+              key={section.key}
+              title={section.title}
+              data={sectionsData[section.key]}
+              onChange={(patch) => updateSection(section.key, patch)}
             />
-          ))
-        )}
-      </ScrollView>
+          ))}
+
+          <View style={{ marginTop: spacing.sm, marginBottom: spacing.lg }}>
+            <PrimaryButton title={saving ? 'جاري الحفظ...' : 'حفظ المتابعة'} onPress={saveAll} disabled={saving || !selectedStudent} />
+          </View>
+
+          <Text style={styles.sectionTitle}>سجل الحفظ السابق</Text>
+          {history.length === 0 ? (
+            <Text style={{ color: colors.textMuted, textAlign: 'center' }}>لا يوجد سجل بعد لهذا الطالب</Text>
+          ) : (
+            history.map((h) => (
+              <Row
+                key={h.id}
+                left={`${h.surah || ''} ${h.ayah_from ? `(${h.ayah_from}-${h.ayah_to || ''})` : ''}`}
+                subtitle={`${h.session_type} — ${h.date}`}
+                right={h.evaluation ? <Badge text={h.evaluation} type={h.evaluation === 'يحتاج مراجعة' ? 'warning' : 'success'} /> : null}
+              />
+            ))
+          )}
+        </ScrollView>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+/** حقول قسم واحد بس - من غير أي حالة أو زرار حفظ داخلها، كلها بتتحكم من الشاشة الأب */
+interface SectionFieldsProps {
+  title: string;
+  data: SectionState;
+  onChange: (patch: Partial<SectionState>) => void;
+}
+function SectionFields({ title, data, onChange }: SectionFieldsProps) {
+  return (
+    <View style={{ marginBottom: spacing.lg }}>
+      <View style={styles.sectionHeaderBox}>
+        <Text style={styles.sectionHeaderBoxText}>{title}</Text>
+      </View>
+
+      <Text style={styles.label}>السورة</Text>
+      <TextInput
+        style={styles.input}
+        value={data.surah}
+        onChangeText={(v) => onChange({ surah: v })}
+        placeholder="مثال: سورة البقرة"
+        textAlign="right"
+      />
+
+      <View style={{ flexDirection: 'row-reverse', gap: spacing.sm }}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>من آية</Text>
+          <TextInput style={styles.input} value={data.ayahFrom} onChangeText={(v) => onChange({ ayahFrom: v })} keyboardType="numeric" textAlign="right" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.label}>إلى آية</Text>
+          <TextInput style={styles.input} value={data.ayahTo} onChangeText={(v) => onChange({ ayahTo: v })} keyboardType="numeric" textAlign="right" />
+        </View>
+      </View>
+
+      <Text style={styles.label}>تقييم التسميع</Text>
+      <View style={styles.chipRow}>
+        {EVALUATIONS.map((e) => (
+          <Chip key={e} label={e} active={data.evaluation === e} onPress={() => onChange({ evaluation: e })} />
+        ))}
+      </View>
     </View>
   );
 }
@@ -184,4 +231,12 @@ const styles = StyleSheet.create({
   chipText: { color: colors.pinkDark, fontWeight: '700', fontSize: 12 },
   chipTextActive: { color: '#fff', fontWeight: '700', fontSize: 12 },
   sectionTitle: { fontWeight: '800', color: colors.pinkDark, marginBottom: spacing.sm, marginTop: spacing.sm, textAlign: 'right' },
+  sectionHeaderBox: {
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.pink,
+  },
+  sectionHeaderBoxText: { color: '#fff', fontWeight: '800', textAlign: 'center', fontSize: 14 },
 });

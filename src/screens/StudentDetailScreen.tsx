@@ -64,20 +64,20 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
     try {
       const s = await api.getStudentById(studentId);
       setStudent(s);
-      const [sessionsData, paymentsData, attHistory, attStats, eventsData, presentCount] = await Promise.all([
+      const [sessionsData, paymentsData, attHistory, attStats, eventsData, deductedCount] = await Promise.all([
         api.getSessions(studentId),
         api.getPaymentsByStudent(studentId),
         api.getAttendanceHistory(studentId),
         api.getAttendanceStats(studentId),
         api.getUpcomingEventsForStudent(studentId, todayISO()),
-        api.getPresentCountForMonth(studentId, currentMonthYM()),
+        api.getDeductedCountForMonth(studentId, currentMonthYM()),
       ]);
       setSessions(sessionsData);
       setPayments(paymentsData);
       setAttendanceHistory(attHistory);
       setAttendanceStats(attStats);
       setEvents(eventsData);
-      setPresentThisMonth(presentCount);
+      setPresentThisMonth(deductedCount);
     } finally {
       setLoading(false);
     }
@@ -305,21 +305,31 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
         </View>
 
         {/* حضور اليوم */}
+        {/* حضور اليوم */}
         <SectionHeader title="حضور اليوم" />
         <View style={{ flexDirection: 'row-reverse', gap: 6, marginBottom: spacing.md }}>
           <TouchableOpacity
             onPress={() => markTodayAttendance('present')}
             style={[styles.attendanceBtn, todayStatus === 'present' && styles.attendancePresentOn]}
           >
-            <Text style={[styles.attendanceBtnText, todayStatus === 'present' && { color: colors.success }]}>حاضر النهاردة</Text>
+            <Text style={[styles.attendanceBtnText, todayStatus === 'present' && { color: colors.success }]}>حاضر</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => markTodayAttendance('absent')}
             style={[styles.attendanceBtn, todayStatus === 'absent' && styles.attendanceAbsentOn]}
           >
-            <Text style={[styles.attendanceBtnText, todayStatus === 'absent' && { color: colors.danger }]}>غائب النهاردة</Text>
+            <Text style={[styles.attendanceBtnText, todayStatus === 'absent' && { color: colors.danger }]}>غائب</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => markTodayAttendance('excused')}
+            style={[styles.attendanceBtn, todayStatus === 'excused' && styles.attendanceExcusedOn]}
+          >
+            <Text style={[styles.attendanceBtnText, todayStatus === 'excused' && { color: colors.pinkDark }]}>اعتذار</Text>
           </TouchableOpacity>
         </View>
+        <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'right', marginTop: -6, marginBottom: spacing.sm }}>
+          الاعتذار مايخصمش من عدد الحصص في الشهر
+        </Text>
 
         {/* الاشتراك */}
         <SectionHeader title="الاشتراك" />
@@ -404,7 +414,12 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
             <Row
               key={a.id}
               left={a.date}
-              right={<Badge text={a.status === 'present' ? 'حاضر' : 'غائب'} type={a.status === 'present' ? 'success' : 'danger'} />}
+              right={
+                <Badge
+                  text={a.status === 'present' ? 'حاضر' : a.status === 'absent' ? 'غائب' : 'اعتذار'}
+                  type={a.status === 'present' ? 'success' : a.status === 'absent' ? 'danger' : 'warning'}
+                />
+              }
             />
           ))
         )}
@@ -546,6 +561,7 @@ const styles = StyleSheet.create({
   },
   attendancePresentOn: { backgroundColor: colors.successBg, borderColor: '#c8e6c9' },
   attendanceAbsentOn: { backgroundColor: colors.dangerBg, borderColor: '#ffcdd2' },
+  attendanceExcusedOn: { backgroundColor: colors.pinkLight, borderColor: colors.pinkSoft },
   attendanceBtnText: { color: '#999', fontWeight: '700' },
   overdueBanner: {
     backgroundColor: colors.dangerBg, borderRadius: 12, padding: spacing.md, marginBottom: spacing.md,

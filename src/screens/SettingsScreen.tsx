@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, Alert, TextInput, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import * as DocumentPicker from 'expo-document-picker';
-import { colors, spacing, radius } from '../theme';
+import { colors, spacing, radius, shadow } from '../theme';
 import { TopBar, PrimaryButton, Badge } from '../components';
 import { exportBackup, importBackup } from '../backup';
 import { setupNotifications, getNotificationPermissionStatus, isNotificationsSupported, sendTestNotification } from '../notifications';
@@ -258,6 +258,7 @@ const styles = StyleSheet.create({
   card: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 14,
     padding: spacing.md, marginBottom: spacing.lg, backgroundColor: '#fafafa',
+    ...shadow,
   },
   cardText: { color: colors.textDark, fontSize: 13, textAlign: 'right', lineHeight: 20 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },

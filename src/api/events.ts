@@ -13,6 +13,20 @@ export async function getEvents(month: string): Promise<CalendarEvent[]> {
   );
 }
 
+/** كل المواعيد ضمن مدى تاريخ معيّن (من/لـ) — مستخدمة في عرض الأسبوع */
+export async function getEventsForDateRange(fromDate: string, toDate: string): Promise<CalendarEvent[]> {
+  const db = await getDb();
+  return db.getAllAsync<CalendarEvent>(
+    `SELECT e.*, h.name AS halaqa_name, s.name AS student_name
+     FROM events e
+     LEFT JOIN halaqas h ON e.halaqa_id = h.id
+     LEFT JOIN students s ON e.student_id = s.id
+     WHERE e.event_date >= ? AND e.event_date <= ?
+     ORDER BY e.event_date, e.event_time`,
+    [fromDate, toDate]
+  );
+}
+
 export async function getUpcomingEventsForStudent(studentId: number | null, fromDate: string): Promise<CalendarEvent[]> {
   if (!studentId) return [];
   const db = await getDb();
