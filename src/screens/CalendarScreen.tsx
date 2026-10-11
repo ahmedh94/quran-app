@@ -188,6 +188,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     paddingVertical: 6,
+    paddingRight:30,
   },
   dayColHead: { flex: 1, alignItems: 'center' },
   dowText: { fontSize: 10, color: '#999' },

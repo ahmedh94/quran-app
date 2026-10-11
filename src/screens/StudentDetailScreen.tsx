@@ -53,7 +53,10 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [occurrences, setOccurrences] = useState('8');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [endDateValue, setEndDateValue] = useState(new Date());
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
+  const [endMode, setEndMode] = useState<'count' | 'date' | 'forever'>('count');
 
   // حالة مودال تعديل عدد الحصص في الشهر
   const [sessionsModalVisible, setSessionsModalVisible] = useState(false);
@@ -484,14 +487,48 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
                 placeholder="30"
               />
 
-              <TouchableOpacity
-                onPress={() => setIsRecurring((v) => !v)}
-                style={[styles.recurringToggle, isRecurring && styles.recurringToggleOn]}
-              >
-                <Text style={[styles.recurringToggleText, isRecurring && { color: colors.pinkDark }]}>
-                  {isRecurring ? '✓ ' : ''}يتكرر أسبوعيًا (نفس اليوم والوقت)
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.label}>لحد إمتى؟</Text>
+              <View style={styles.chipRow}>
+                <FrequencyChip label="عدد مرات" active={endMode === 'count'} onPress={() => setEndMode('count')} />
+                <FrequencyChip label="تاريخ معيّن" active={endMode === 'date'} onPress={() => setEndMode('date')} />
+                <FrequencyChip label="بلا نهاية" active={endMode === 'forever'} onPress={() => setEndMode('forever')} />
+              </View>
+
+              {endMode === 'count' && (
+                <>
+                  <Text style={styles.label}>عدد المرات</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={occurrences}
+                    onChangeText={setOccurrences}
+                    keyboardType="numeric"
+                    textAlign="right"
+                    placeholder="8"
+                  />
+                </>
+              )}
+              {endMode === 'date' && (
+                <>
+                  <Text style={styles.label}>يتكرر لحد تاريخ</Text>
+                  {Platform.OS === 'android' && (
+                    <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowEndDatePicker(true)}>
+                      <Text>{dateToYMD(endDateValue)}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {showEndDatePicker && (
+                    <DateTimePicker
+                      value={endDateValue}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(_e: DateTimePickerEvent, date?: Date) => {
+                        if (Platform.OS === 'android') setShowEndDatePicker(false);
+                        if (date) setEndDateValue(date);
+                      }}
+                    />
+                  )}
+                </>
+              )}
+              {/* endMode === 'forever' مفيهوش حقول إضافية */}
 
               {isRecurring && (
                 <>
@@ -549,6 +586,27 @@ function EmptyLine({ text }: { text: string }) {
   return <Text style={styles.emptyText}>{text}</Text>;
 }
 
+function FrequencyChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      style={[styles.frequencyChip, active && styles.frequencyChipActive]}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      <Text style={[styles.frequencyChipText, active && styles.frequencyChipTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
   halaqaSubtitle: { color: colors.textMuted, textAlign: 'right', marginBottom: spacing.md, fontSize: 13 },
   sectionTitle: {
@@ -581,6 +639,14 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm,
     padding: 12, marginBottom: spacing.sm, alignItems: 'flex-end',
   },
+  chipRow: { flexDirection: 'row-reverse', gap: spacing.sm, marginBottom: spacing.sm },
+  frequencyChip: {
+    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm,
+    paddingVertical: 10, alignItems: 'center', backgroundColor: '#fafafa',
+  },
+  frequencyChipActive: { backgroundColor: colors.pinkLight, borderColor: colors.pinkSoft },
+  frequencyChipText: { color: colors.textMuted, fontWeight: '700', fontSize: 12 },
+  frequencyChipTextActive: { color: colors.pinkDark },
   recurringToggle: {
     borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm,
     padding: 12, marginBottom: spacing.sm, backgroundColor: '#fafafa',

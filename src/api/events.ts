@@ -48,13 +48,45 @@ export async function createEvent(data: CalendarEventInput): Promise<CalendarEve
   return db.getFirstAsync<CalendarEvent>('SELECT * FROM events WHERE id = ?', [result.lastInsertRowId]);
 }
 
+function formatYMD(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 /**
- * بتعمل مجموعة مواعيد أسبوعية متكررة (نفس اليوم والوقت كل أسبوع) دفعة واحدة،
- * وكلهم مرتبطين بنفس recurrence_id عشان لو حبينا نلغي السلسلة كلها بعدين.
- * بترجع كل المواعيد اللي اتعملت (occurrences).
+ * بترجع تاريخ التكرار رقم index.
+ * في الشهري: لو اليوم الأصلي 31 والشهر مفيهوش 31، بنستخدم آخر يوم في الشهر
+ * (بدل ما JavaScript يرميه على الشهر اللي بعده).
  */
-export async function createRecurringWeeklyEvents(
-  data: CalendarEventInput & { occurrences: number }
+function getOccurrenceDate(base: Date, frequency: 'daily' | 'weekly' | 'monthly', index: number): Date {
+  if (frequency === 'daily') {
+    const next = new Date(base);
+    next.setDate(base.getDate() + index);
+    return next;
+  }
+  if (frequency === 'weekly') {
+    const next = new Date(base);
+    next.setDate(base.getDate() + index * 7);
+    return next;
+  }
+  const targetMonthIndex = base.getMonth() + index;
+  const year = base.getFullYear() + Math.floor(targetMonthIndex / 12);
+  const month = ((targetMonthIndex % 12) + 12) % 12;
+  const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(base.getDate(), lastDayOfMonth));
+}
+
+/**
+ * مواعيد متكررة: يومي / أسبوعي / شهري، وبتنتهي بـ: عدد مرات، أو تاريخ معيّن،
+ * أو "بلا نهاية" (= سنة كاملة قدّام، لأن مينفعش نخزّن مواعيد لا نهائية فعليًا).
+ * كل المواعيد بتتربط بنفس recurrence_id عشان نقدر نلغي السلسلة كلها بعدين.
+ */
+export async function createRecurringEvents(
+  data: CalendarEventInput & {
+    frequency: 'daily' | 'weekly' | 'monthly';
+    endMode: 'count' | 'date' | 'forever';
+    occurrences?: number; // مطلوب لو endMode === 'count'
+    endDate?: string;     // مطلوب لو endMode === 'date' (YYYY-MM-DD)
+  }
 ): Promise<CalendarEvent[]> {
   const db = await getDb();
   const recurrenceId = `rec-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
@@ -63,15 +95,26 @@ export async function createRecurringWeeklyEvents(
   const [y, m, d] = data.event_date.split('-').map(Number);
   const baseDate = new Date(y, (m || 1) - 1, d || 1);
 
+  const oneYearFromStart = new Date(baseDate);
+  oneYearFromStart.setFullYear(oneYearFromStart.getFullYear() + 1);
+
+  const MAX_OCCURRENCES = 366; // حد أمان يمنع حلقة لا نهائية
+
   await db.withTransactionAsync(async () => {
-    for (let i = 0; i < data.occurrences; i++) {
-      const occurrenceDate = new Date(baseDate);
-      occurrenceDate.setDate(occurrenceDate.getDate() + i * 7);
-      const eventDate = `${occurrenceDate.getFullYear()}-${String(occurrenceDate.getMonth() + 1).padStart(2, '0')}-${String(occurrenceDate.getDate()).padStart(2, '0')}`;
+    for (let index = 0; index < MAX_OCCURRENCES; index++) {
+      const occurrenceDate = getOccurrenceDate(baseDate, data.frequency, index);
+      const eventDate = formatYMD(occurrenceDate);
+
+      if (data.endMode === 'count' && index >= (data.occurrences ?? 1)) break;
+      if (data.endMode === 'date' && data.endDate && eventDate > data.endDate) break;
+      if (data.endMode === 'forever' && occurrenceDate > oneYearFromStart) break;
 
       const result = await db.runAsync(
         'INSERT INTO events (title, event_date, event_time, halaqa_id, student_id, recurrence_id, type, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-        [data.title, eventDate, data.event_time ?? null, data.halaqa_id ?? null, data.student_id ?? null, recurrenceId, data.type ?? 'session', data.notes ?? null]
+        [
+          data.title, eventDate, data.event_time ?? null, data.halaqa_id ?? null,
+          data.student_id ?? null, recurrenceId, data.type ?? 'session', data.notes ?? null,
+        ]
       );
       const row = await db.getFirstAsync<CalendarEvent>('SELECT * FROM events WHERE id = ?', [result.lastInsertRowId]);
       if (row) created.push(row);
