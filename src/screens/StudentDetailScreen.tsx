@@ -53,7 +53,12 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
   const [isRecurring, setIsRecurring] = useState(false);
   const [occurrences, setOccurrences] = useState('8');
   const [showDatePicker, setShowDatePicker] = useState(false);
-  const [endDateValue, setEndDateValue] = useState(new Date());
+  const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+const [endDateValue, setEndDateValue] = useState(() => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 2); // افتراضيًا شهرين قدّام بدل النهاردة
+  return d;
+});
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
   const [endMode, setEndMode] = useState<'count' | 'date' | 'forever'>('count');
@@ -154,29 +159,40 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
       const minutes = Number(minutesBefore) || 30;
 
       if (isRecurring) {
-        const count = Math.max(1, Number(occurrences) || 8);
-        const createdEvents = await api.createRecurringWeeklyEvents({
-          title: student.name,
-          event_date: eventDate,
-          event_time: eventTime,
-          student_id: studentId,
-          occurrences: count,
-        });
-        let anyPermissionDenied = false;
-        for (const created of createdEvents) {
-          const reminder = await scheduleEventReminder({
-            uid: `event-${created.id}`,
-            title: student.name,
-            eventDate: created.event_date,
-            eventTime,
-            minutesBefore: minutes,
-          });
-          if (reminder.status === 'permission-denied') anyPermissionDenied = true;
-        }
-        if (anyPermissionDenied) {
-          Alert.alert('تم حفظ المواعيد', 'لكن إذن الإشعارات مش مفعّل، فمش هتوصلك تذكيرات. فعّله من شاشة الإعدادات.');
-        }
-      } else {
+  if (endMode === 'date' && dateToYMD(endDateValue) < eventDate) {
+    Alert.alert('تنبيه', 'تاريخ نهاية التكرار لازم يكون بعد تاريخ أول موعد');
+    return;
+  }
+
+  const createdEvents = await api.createRecurringEvents({
+    title: student.name,
+    event_date: eventDate,
+    event_time: eventTime,
+    student_id: studentId,
+    frequency,
+    endMode,
+    occurrences: endMode === 'count' ? Math.max(1, Number(occurrences) || 8) : undefined,
+    endDate: endMode === 'date' ? dateToYMD(endDateValue) : undefined,
+  });
+
+  // بنجدول تذكير لأول 60 موعد بس: أندرويد بيحدّد عدد المنبّهات اللي التطبيق
+  // يقدر يسجّلها، ولو سنة يومي هتبقى 366 منبّه وبطيئة جدًا
+  const MAX_REMINDERS = 60;
+  let anyPermissionDenied = false;
+  for (const created of createdEvents.slice(0, MAX_REMINDERS)) {
+    const reminder = await scheduleEventReminder({
+      uid: `event-${created.id}`,
+      title: student.name,
+      eventDate: created.event_date,
+      eventTime,
+      minutesBefore: minutes,
+    });
+    if (reminder.status === 'permission-denied') anyPermissionDenied = true;
+  }
+  if (anyPermissionDenied) {
+    Alert.alert('تم حفظ المواعيد', 'لكن إذن الإشعارات مش مفعّل، فمش هتوصلك تذكيرات. فعّله من شاشة الإعدادات.');
+  }
+} else {
         const created = await api.createEvent({
           title: student.name,
           event_date: eventDate,
@@ -487,63 +503,74 @@ export default function StudentDetailScreen({ route, navigation }: Props) {
                 placeholder="30"
               />
 
-              <Text style={styles.label}>لحد إمتى؟</Text>
-              <View style={styles.chipRow}>
-                <FrequencyChip label="عدد مرات" active={endMode === 'count'} onPress={() => setEndMode('count')} />
-                <FrequencyChip label="تاريخ معيّن" active={endMode === 'date'} onPress={() => setEndMode('date')} />
-                <FrequencyChip label="بلا نهاية" active={endMode === 'forever'} onPress={() => setEndMode('forever')} />
-              </View>
+             <TouchableOpacity
+  onPress={() => setIsRecurring((v) => !v)}
+  style={[styles.recurringToggle, isRecurring && styles.recurringToggleOn]}
+>
+  <Text style={[styles.recurringToggleText, isRecurring && { color: colors.pinkDark }]}>
+    {isRecurring ? '✓ ' : ''}يتكرر
+  </Text>
+</TouchableOpacity>
 
-              {endMode === 'count' && (
-                <>
-                  <Text style={styles.label}>عدد المرات</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={occurrences}
-                    onChangeText={setOccurrences}
-                    keyboardType="numeric"
-                    textAlign="right"
-                    placeholder="8"
-                  />
-                </>
-              )}
-              {endMode === 'date' && (
-                <>
-                  <Text style={styles.label}>يتكرر لحد تاريخ</Text>
-                  {Platform.OS === 'android' && (
-                    <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowEndDatePicker(true)}>
-                      <Text>{dateToYMD(endDateValue)}</Text>
-                    </TouchableOpacity>
-                  )}
-                  {showEndDatePicker && (
-                    <DateTimePicker
-                      value={endDateValue}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      onChange={(_e: DateTimePickerEvent, date?: Date) => {
-                        if (Platform.OS === 'android') setShowEndDatePicker(false);
-                        if (date) setEndDateValue(date);
-                      }}
-                    />
-                  )}
-                </>
-              )}
-              {/* endMode === 'forever' مفيهوش حقول إضافية */}
+{isRecurring && (
+  <>
+    <Text style={styles.label}>كل كام؟</Text>
+    <View style={styles.chipRow}>
+      <FrequencyChip label="يوم" active={frequency === 'daily'} onPress={() => setFrequency('daily')} />
+      <FrequencyChip label="أسبوع" active={frequency === 'weekly'} onPress={() => setFrequency('weekly')} />
+      <FrequencyChip label="شهر" active={frequency === 'monthly'} onPress={() => setFrequency('monthly')} />
+    </View>
 
-              {isRecurring && (
-                <>
-                  <Text style={styles.label}>عدد مرات التكرار (أسابيع)</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={occurrences}
-                    onChangeText={setOccurrences}
-                    keyboardType="numeric"
-                    textAlign="right"
-                    placeholder="8"
-                  />
-                </>
-              )}
+    <Text style={styles.label}>لحد إمتى؟</Text>
+    <View style={styles.chipRow}>
+      <FrequencyChip label="عدد مرات" active={endMode === 'count'} onPress={() => setEndMode('count')} />
+      <FrequencyChip label="تاريخ معيّن" active={endMode === 'date'} onPress={() => setEndMode('date')} />
+      <FrequencyChip label="بلا نهاية" active={endMode === 'forever'} onPress={() => setEndMode('forever')} />
+    </View>
 
+    {endMode === 'count' && (
+      <>
+        <Text style={styles.label}>عدد المرات</Text>
+        <TextInput
+          style={styles.input}
+          value={occurrences}
+          onChangeText={setOccurrences}
+          keyboardType="numeric"
+          textAlign="right"
+          placeholder="8"
+        />
+      </>
+    )}
+
+    {endMode === 'date' && (
+      <>
+        <Text style={styles.label}>يتكرر لحد تاريخ</Text>
+        {Platform.OS === 'android' && (
+          <TouchableOpacity style={styles.pickerBtn} onPress={() => setShowEndDatePicker(true)}>
+            <Text>{dateToYMD(endDateValue)}</Text>
+          </TouchableOpacity>
+        )}
+        {showEndDatePicker && (
+          <DateTimePicker
+            value={endDateValue}
+            mode="date"
+            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+            onChange={(_e: DateTimePickerEvent, date?: Date) => {
+              if (Platform.OS === 'android') setShowEndDatePicker(false);
+              if (date) setEndDateValue(date);
+            }}
+          />
+        )}
+      </>
+    )}
+
+    {endMode === 'forever' && (
+      <Text style={{ color: colors.textMuted, fontSize: 11, textAlign: 'right', marginBottom: spacing.sm }}>
+        هيتعمل مواعيد لمدة سنة كاملة قدّام.
+      </Text>
+    )}
+  </>
+)}
               <View style={{ flexDirection: 'row-reverse', gap: spacing.sm, marginTop: spacing.md }}>
                 <View style={{ flex: 1 }}><PrimaryButton title="حفظ" onPress={addEvent} /></View>
                 <View style={{ flex: 1 }}><PrimaryButton title="إلغاء" outline onPress={() => setModalVisible(false)} /></View>

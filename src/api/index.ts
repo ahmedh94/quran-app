@@ -1,9 +1,24 @@
 import { getHalaqas, createHalaqa } from './halaqas';
 import { getStudents, createStudent, getStudentById, updateStudent, deleteStudent } from './students';
-import { getAttendance, saveAttendance, getAttendanceSummary, getAttendanceHistory, getAttendanceStats, getDeductedCountForMonth } from './attendance';
+import {
+  getAttendance,
+  saveAttendance,
+  getAttendanceSummary,
+  getAttendanceHistory,
+  getAttendanceStats,
+  getDeductedCountForMonth,
+} from './attendance';
 import { getSessions, createSession } from './sessions';
 import { getPayments, getPaymentsByStudent, getPaymentsSummary, createPayment, markPaymentPaid } from './payments';
-import { getEvents, getEventsForDateRange, getUpcomingEventsForStudent, createEvent, createRecurringWeeklyEvents, deleteEvent, deleteEventSeriesFrom } from './events';
+import {
+  getEvents,
+  getEventsForDateRange,
+  getUpcomingEventsForStudent,
+  createEvent,
+  createRecurringEvents,
+  deleteEvent,
+  deleteEventSeriesFrom,
+} from './events';
 
 const api = {
   // Halaqas
@@ -36,7 +51,7 @@ const api = {
   getEventsForDateRange,
   getUpcomingEventsForStudent,
   createEvent,
-  createRecurringWeeklyEvents,
+  createRecurringEvents,
   deleteEvent,
   deleteEventSeriesFrom,
 };
