@@ -2,7 +2,7 @@
   "expo": {
     "name": "حلقتي",
     "slug": "halaqty-quran-app",
-    "version": "5.10.1",
+    "version": "5.10.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
